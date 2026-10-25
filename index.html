@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<meta name="theme-color" content="#101426">
+
+<title>MarketOracle</title>
+
+<style>
+
+:root{color-scheme:dark;--bg:#0b1020;--panel:#141c30;--line:#29334c;--text:#eef2ff;--muted:#9ba9c5;--accent:#8b7cff;--green:#37d6a0;--red:#ff7185;--yellow:#ffd479}
+
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,sans-serif}header{padding:24px 18px;background:#11182b;border-bottom:1px solid var(--line)}main{max-width:1100px;margin:auto;padding:18px}h1{margin:0;font-size:27px}h2{font-size:17px;margin:0 0 14px}p{color:var(--muted);line-height:1.5}.sub{color:var(--muted);margin-top:6px}.layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:17px;min-width:0}.wide{grid-column:1/-1}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}label{display:block;color:var(--muted);font-size:13px;margin:10px 0 6px}select,input,button{font:inherit;border-radius:9px;padding:11px;border:1px solid var(--line);background:#0c1325;color:var(--text);max-width:100%}select,input{width:100%}button{background:var(--accent);border:0;color:white;font-weight:650;cursor:pointer}button:disabled{opacity:.5}.row button{flex:1}.metric{background:#0d1426;border-radius:10px;padding:12px;min-width:0;flex:1}.metric small{display:block;color:var(--muted)}.metric strong{display:block;font-size:19px;margin-top:5px;overflow-wrap:anywhere}.signal{font-size:22px;font-weight:800;margin:8px 0}.green{color:var(--green)}.red{color:var(--red)}.yellow{color:var(--yellow)}canvas{width:100%;height:260px;display:block}table{width:100%;border-collapse:collapse;font-size:13px}td,th{text-align:left;padding:9px 5px;border-bottom:1px solid var(--line)}th{color:var(--muted)}.tablewrap{overflow:auto}.status{font-size:13px;color:var(--muted);margin-top:12px}.foot{font-size:12px;color:var(--muted);padding:20px 0}a{color:#b8b0ff}@media(max-width:650px){.layout{grid-template-columns:1fr}.wide{grid-column:auto}header{padding:20px 15px}main{padding:12px}.metric strong{font-size:17px}}
+
+</style>
+
+</head>
+
+<body>
+
+<header><h1>MarketOracle</h1><div class="sub">Análisis cuantitativo de criptomonedas · Velas de 1 hora</div></header>
+
+<main>
+
+<div class="layout">
+
+<section class="panel wide">
+
+<div class="row">
+
+<div style="flex:2;min-width:150px"><label for="asset">Activo</label><select id="asset"><option value="BTCUSDT">Bitcoin (BTC/USDT)</option><option value="ETHUSDT">Ethereum (ETH/USDT)</option><option value="SOLUSDT">Solana (SOL/USDT)</option><option value="BNBUSDT">BNB (BNB/USDT)</option></select></div>
+
+<div style="flex:1;min-width:120px"><label for="period">Velas históricas</label><select id="period"><option value="200">200 horas</option><option value="500" selected>500 horas</option></select></div>
+
+</div>
+
+<div class="row" style="margin-top:12px"><button id="refresh">Actualizar análisis</button><button id="csv" style="background:#293653">Exportar CSV</button></div>
+
+<div id="status" class="status">Listo para consultar datos públicos del mercado.</div>
+
+</section>
+
+<section class="panel">
+
+<h2>Señal del sistema</h2><div id="signal" class="signal yellow">ESPERAR</div>
+
+<p id="reason">Carga los datos para calcular los indicadores.</p>
+
+<div class="row"><div class="metric"><small>Precio actual</small><strong id="price">—</strong></div><div class="metric"><small>Variación última vela</small><strong id="change">—</strong></div></div>
+
+</section>
+
+<section class="panel">
+
+<h2>Indicadores técnicos</h2>
+
+<div class="row"><div class="metric"><small>EMA 20</small><strong id="ema20">—</strong></div><div class="metric"><small>EMA 50</small><strong id="ema50">—</strong></div></div>
+
+<div class="row" style="margin-top:10px"><div class="metric"><small>RSI (14)</small><strong id="rsi">—</strong></div><div class="metric"><small>Datos analizados</small><strong id="count">—</strong></div></div>
+
+</section>
+
+<section class="panel wide"><h2>Precio y medias móviles</h2><canvas id="chart" width="1000" height="300" aria-label="Gráfico de precios y medias móviles"></canvas><div class="status">Línea clara: precio · Línea violeta: EMA 20 · Línea verde: EMA 50. Gráfico ilustrativo de los datos cargados.</div></section>
+
+<section class="panel">
+
+<h2>Calculadora de riesgo</h2>
+
+<label for="capital">Capital disponible (COP)</label><input id="capital" type="number" min="0" value="100000">
+
+<label for="risk">Riesgo por operación (%)</label><input id="risk" type="number" min="0.1" max="5" step="0.1" value="1">
+
+<label for="stop">Distancia del stop-loss (%)</label><input id="stop" type="number" min="0.1" max="30" step="0.1" value="2">
+
+<label for="fx">Tasa COP por USDT (consulta una tasa real antes de operar)</label><input id="fx" type="number" min="1" value="4200">
+
+<div class="metric" style="margin-top:12px"><small>Riesgo máximo estimado</small><strong id="riskcash">$1.000 COP</strong></div>
+
+<div class="metric" style="margin-top:8px"><small>Tamaño teórico de posición</small><strong id="position">$50.000 COP</strong></div>
+
+<p>Estimación educativa. No incluye deslizamiento, financiación, impuestos ni todas las comisiones.</p>
+
+</section>
+
+<section class="panel">
+
+<h2>Prueba histórica simplificada</h2>
+
+<p>Simula una estrategia long-only: compra cuando EMA 20 cruza por encima de EMA 50 y vende cuando cruza por debajo. No predice resultados futuros.</p>
+
+<div class="metric"><small>Rendimiento acumulado simulado</small><strong id="backret">—</strong></div>
+
+<div class="metric" style="margin-top:8px"><small>Operaciones cerradas</small><strong id="trades">—</strong></div>
+
+<div class="metric" style="margin-top:8px"><small>Máxima caída desde un pico</small><strong id="drawdown">—</strong></div>
+
+<div class="status">No incluye comisiones ni deslizamiento; una prueba histórica puede sobrestimar resultados.</div>
+
+</section>
+
+<section class="panel wide">
+
+<h2>Últimas velas e indicadores</h2><div class="tablewrap"><table><thead><tr><th>Fecha y hora</th><th>Cierre</th><th>EMA 20</th><th>EMA 50</th><th>RSI 14</th></tr></thead><tbody id="rows"><tr><td colspan="5">Sin datos todavía.</td></tr></tbody></table></div>
+
+</section>
+
+</div>
+
+<div class="foot">MarketOracle es una herramienta informativa y experimental. No es asesoría financiera ni garantiza ganancias. Las señales se basan en indicadores históricos y pueden fallar. Los datos públicos de Binance pueden estar temporalmente disponibles o no. Nunca inviertas dinero que no puedas permitirte perder.</div>
+
+</main>
+
+<script>
+
+"use strict";
+
+const $=id=>document.getElementById(id);
+
+let market=[];
+
+function fmt(n,d=2){return Number.isFinite(n)?n.toLocaleString("es-CO",{minimumFractionDigits:d,maximumFractionDigits:d}):"—"}
+
+function money(n){return Number.isFinite(n)?"$"+fmt(n,0)+" COP":"—"}
+
+function ema(values,period){let out=Array(values.length).fill(null);if(values.length<period)return out;let seed=values.slice(0,period).reduce((a,b)=>a+b,0)/period;out[period-1]=seed;let k=2/(period+1);for(let i=period;i<values.length;i++)out[i]=values[i]*k+out[i-1]*(1-k);return out}
+
+function rsi(values,period=14){let out=Array(values.length).fill(null);for(let i=period;i<values.length;i++){let up=0,down=0;for(let j=i-period+1;j<=i;j++){let diff=values[j]-values[j-1];if(diff>0)up+=diff;else down-=diff}let avgU=up/period,avgD=down/period;out[i]=avgD===0?100:100-100/(1+avgU/avgD)}return out}
+
+async function load(){ $("refresh").disabled=true;$("status").textContent="Consultando velas horarias públicas…";try{
+
+let symbol=$("asset").value,limit=Number($("period").value);
+
+let url="https://api.binance.com/api/v3/klines?symbol="+encodeURIComponent(symbol)+"&interval=1h&limit="+limit;
+
+let response=await fetch(url);if(!response.ok)throw Error("Binance respondió HTTP "+response.status);
+
+let raw=await response.json();if(!Array.isArray(raw)||!raw.length)throw Error("No se recibieron velas.");
+
+market=raw.map(k=>({time:k[0],open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5]}));
+
+let closes=market.map(x=>x.close),e20=ema(closes,20),e50=ema(closes,50),rs=rsi(closes);
+
+market.forEach((x,i)=>{x.e20=e20[i];x.e50=e50[i];x.rsi=rs[i]});
+
+render();$("status").textContent="Actualizado: "+new Date().toLocaleString("es-CO")+". Fuente: API pública de Binance.";
+
+}catch(e){$("status").textContent="No se pudieron cargar los datos: "+e.message+". Comprueba tu conexión e inténtalo de nuevo.";console.error(e)}finally{$("refresh").disabled=false}}
+
+function render(){
+
+let last=market.length-1,x=market[last],prev=market[last-1],old=market[last-2];
+
+$("price").textContent=fmt(x.close,4)+" USDT";
+
+let ch=(x.close/prev.close-1)*100;$("change").textContent=(ch>=0?"+":"")+fmt(ch)+"%";$("change").className=ch>=0?"green":"red";
+
+$("ema20").textContent=fmt(x.e20,4);$("ema50").textContent=fmt(x.e50,4);$("rsi").textContent=fmt(x.rsi);$("count").textContent=market.length;
+
+let crossUp=prev.e20<=prev.e50&&x.e20>x.e50,crossDown=prev.e20>=prev.e50&&x.e20<x.e50;
+
+let signal="ESPERAR",cls="yellow",reason="No hay un cruce nuevo confirmado. Esperar evita forzar una operación.";
+
+if(crossUp&&x.rsi>=40&&x.rsi<=70){signal="POSIBLE COMPRA";cls="green";reason="Cruce alcista EMA 20/50 con RSI entre 40 y 70. Confirmar riesgo y contexto antes de actuar."}
+
+else if(crossDown){signal="POSIBLE VENTA";cls="red";reason="Cruce bajista EMA 20/50. Si tienes una posición, evalúa el riesgo; no garantiza una caída."}
+
+else if(x.e20>x.e50&&x.rsi<70){signal="SESGO ALCISTA";cls="green";reason="EMA 20 sobre EMA 50. No es una señal de entrada confirmada."}
+
+else if(x.e20<x.e50){signal="SESGO BAJISTA";cls="red";reason="EMA 20 debajo de EMA 50. No es una predicción segura."}
+
+$("signal").textContent=signal;$("signal").className="signal "+cls;$("reason").textContent=reason;
+
+$("rows").innerHTML=market.slice(-12).reverse().map(v=>"<tr><td>"+new Date(v.time).toLocaleString("es-CO",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})+"</td><td>"+fmt(v.close,4)+"</td><td>"+fmt(v.e20,4)+"</td><td>"+fmt(v.e50,4)+"</td><td>"+fmt(v.rsi)+"</td></tr>").join("");
+
+draw();backtest();risk()}
+
+function draw(){
+
+let c=$("chart"),ctx=c.getContext("2d"),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);if(!market.length)return;
+
+let data=market.slice(-100),vals=data.flatMap(x=>[x.close,x.e20,x.e50].filter(Number.isFinite)),min=Math.min(...vals),max=Math.max(...vals),pad=(max-min)*.08||1;min-=pad;max+=pad;
+
+ctx.strokeStyle="#29334c";ctx.lineWidth=1;for(let i=0;i<5;i++){let y=20+i*(h-40)/4;ctx.beginPath();ctx.moveTo(45,y);ctx.lineTo(w-10,y);ctx.stroke()}
+
+function line(key,color){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;let started=false;data.forEach((v,i)=>{if(!Number.isFinite(v[key]))return;let px=45+i*(w-60)/(data.length-1),py=20+(max-v[key])*(h-40)/(max-min);if(!started){ctx.moveTo(px,py);started=true}else ctx.lineTo(px,py)});ctx.stroke()}
+
+line("close","#eef2ff");line("e20","#9b8cff");line("e50","#37d6a0");
+
+}
+
+function backtest(){
+
+let cash=1,units=0,entry=0,trades=0,peak=1,maxdd=0;
+
+for(let i=1;i<market.length;i++){let p=market[i-1],x=market[i];if(!Number.isFinite(x.e20)||!Number.isFinite(x.e50)||!Number.isFinite(p.e20)||!Number.isFinite(p.e50))continue;
+
+if(!units&&p.e20<=p.e50&&x.e20>x.e50){units=cash/x.close;entry=x.close}
+
+else if(units&&p.e20>=p.e50&&x.e20<x.e50){cash=units*x.close;units=0;trades++}
+
+let equity=units?units*x.close:cash;peak=Math.max(peak,equity);maxdd=Math.max(maxdd,(peak-equity)/peak)}
+
+let final=units?units*market[market.length-1].close:cash;
+
+$("backret").textContent=(final-1>=0?"+":"")+fmt((final-1)*100)+"%";$("backret").className=final>=1?"green":"red";$("trades").textContent=trades;$("drawdown").textContent=fmt(maxdd*100)+"%";
+
+}
+
+function risk(){let cap=+$("capital").value,r=+$("risk").value,s=+$("stop").value,fx=+$("fx").value;let valid=cap>0&&r>0&&r<=5&&s>0&&fx>0;
+
+$("riskcash").textContent=valid?money(cap*r/100):"Revisa los valores";$("position").textContent=valid?money(cap*r/s*100):"—"}
+
+function exportCSV(){if(!market.length){$("status").textContent="Primero carga los datos.";return}
+
+let rows=[["timestamp","datetime","open","high","low","close","volume","EMA20","EMA50","RSI14"],...market.map(x=>[x.time,new Date(x.time).toISOString(),x.open,x.high,x.low,x.close,x.volume,x.e20,x.e50,x.rsi])];
+
+let csv=rows.map(r=>r.map(v=>v==null?"":String(v)).join(",")).join("\r\n"),blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="marketoracle-"+$("asset").value+"-1h.csv";a.click();URL.revokeObjectURL(url)}
+
+$("refresh").addEventListener("click",load);$("csv").addEventListener("click",exportCSV);["capital","risk","stop","fx"].forEach(id=>$(id).addEventListener("input",risk));$("asset").addEventListener("change",load);$("period").addEventListener("change",load);
+
+load();setInterval(load,3600000);
+  
+</script>
+
+</body>
+
+</html>
